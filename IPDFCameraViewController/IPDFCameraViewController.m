@@ -39,6 +39,8 @@
 @property (nonatomic, assign) BOOL forceStop;
 @property (nonatomic, assign) CGSize intrinsicContentSize;
 
+@property (nonatomic, strong) AVCaptureConnection *cameraConnection;
+
 @end
 
 @implementation IPDFCameraViewController
@@ -130,7 +132,7 @@
     [session addOutput:self.stillImageOutput];
     
     AVCaptureConnection *connection = [dataOutput.connections firstObject];
-    [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeRight];
+    [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
     
     if (device.isFlashAvailable)
     {
@@ -593,5 +595,20 @@ void saveCGImageAsJPEGToFilePath(CGImageRef imageRef, NSString *filePath)
 BOOL rectangleDetectionConfidenceHighEnough(float confidence)
 {
     return (confidence > 1.0);
+}
+
+-(void)orientationNotificationDidChange:(NSNotification *)notif
+{
+    switch (UIDevice.currentDevice.orientation) {
+        case AVCaptureVideoOrientationLandscapeLeft:
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
+            break;
+        case AVCaptureVideoOrientationLandscapeRight:
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
+            break;
+        default:
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
+            break;
+    }
 }
 @end
