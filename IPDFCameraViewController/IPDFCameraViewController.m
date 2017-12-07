@@ -130,7 +130,7 @@
     [session addOutput:self.stillImageOutput];
     
     AVCaptureConnection *connection = [dataOutput.connections firstObject];
-    [connection setVideoOrientation:AVCaptureVideoOrientationPortrait];
+    [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
     
     if (device.isFlashAvailable)
     {
@@ -594,5 +594,4 @@ BOOL rectangleDetectionConfidenceHighEnough(float confidence)
 {
     return (confidence > 1.0);
 }
-
 @end
