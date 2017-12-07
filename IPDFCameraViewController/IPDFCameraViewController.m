@@ -130,7 +130,7 @@
     [session addOutput:self.stillImageOutput];
     
     AVCaptureConnection *connection = [dataOutput.connections firstObject];
-    [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
+    [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeRight];
     
     if (device.isFlashAvailable)
     {
