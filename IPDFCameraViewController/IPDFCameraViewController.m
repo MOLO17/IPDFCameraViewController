@@ -8,6 +8,7 @@
 
 #import "IPDFCameraViewController.h"
 
+#import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
@@ -67,6 +68,8 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_backgroundMode) name:UIApplicationWillResignActiveNotification object:nil];
     
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_foregroundMode) name:UIApplicationDidBecomeActiveNotification object:nil];
+    
+    [self beginObserservingOrientationNotifications];
     
     _captureQueue = dispatch_queue_create("com.instapdf.AVCameraCaptureQueue", DISPATCH_QUEUE_SERIAL);
 }
@@ -132,7 +135,8 @@
     [session addOutput:self.stillImageOutput];
     
     AVCaptureConnection *connection = [dataOutput.connections firstObject];
-    [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
+    //[connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
+    [self orientationNotificationDidChange:nil];
     
     if (device.isFlashAvailable)
     {
@@ -597,14 +601,28 @@ BOOL rectangleDetectionConfidenceHighEnough(float confidence)
     return (confidence > 1.0);
 }
 
+-(void)beginObserservingOrientationNotifications
+{
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    NSOperationQueue *mainQueue = [NSOperationQueue mainQueue];
+    [center addObserver: self selector:@selector(orientationNotificationDidChange) name: UIDeviceOrientationDidChangeNotification object:nil];
+    UIDevice.currentDevice.beginGeneratingDeviceOrientationNotifications;
+}
+
 -(void)orientationNotificationDidChange:(NSNotification *)notif
 {
     switch (UIDevice.currentDevice.orientation) {
-        case AVCaptureVideoOrientationLandscapeLeft:
+        case UIDeviceOrientationLandscapeLeft:
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
             break;
-        case AVCaptureVideoOrientationLandscapeRight:
+        case UIDeviceOrientationLandscapeRight:
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
+            break;
+        case UIDeviceOrientationPortrait:
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationPortrait;
+            break;
+        case UIDeviceOrientationPortraitUpsideDown:
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationPortraitUpsideDown;
             break;
         default:
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
