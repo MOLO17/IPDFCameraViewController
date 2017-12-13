@@ -87,6 +87,7 @@
 - (void)dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [UIDevice.currentDevice endGeneratingDeviceOrientationNotifications];
 }
 
 - (void)createGLKView
@@ -135,7 +136,7 @@
     [session addOutput:self.stillImageOutput];
     
     AVCaptureConnection *connection = [dataOutput.connections firstObject];
-    //[connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
+//    [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
     [self orientationNotificationDidChange:nil];
     
     if (device.isFlashAvailable)
@@ -605,8 +606,8 @@ BOOL rectangleDetectionConfidenceHighEnough(float confidence)
 {
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     NSOperationQueue *mainQueue = [NSOperationQueue mainQueue];
-    [center addObserver: self selector:@selector(orientationNotificationDidChange) name: UIDeviceOrientationDidChangeNotification object:nil];
-    UIDevice.currentDevice.beginGeneratingDeviceOrientationNotifications;
+    [center addObserver: self selector:@selector(orientationNotificationDidChange:) name: UIDeviceOrientationDidChangeNotification object:nil];
+    [UIDevice.currentDevice beginGeneratingDeviceOrientationNotifications];
 }
 
 -(void)orientationNotificationDidChange:(NSNotification *)notif
@@ -619,10 +620,10 @@ BOOL rectangleDetectionConfidenceHighEnough(float confidence)
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
             break;
         case UIDeviceOrientationPortrait:
-            _cameraConnection.videoOrientation = AVCaptureVideoOrientationPortrait;
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
             break;
         case UIDeviceOrientationPortraitUpsideDown:
-            _cameraConnection.videoOrientation = AVCaptureVideoOrientationPortraitUpsideDown;
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
             break;
         default:
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
