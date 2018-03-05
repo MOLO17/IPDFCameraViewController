@@ -617,7 +617,7 @@ BOOL rectangleDetectionConfidenceHighEnough(float confidence)
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
             break;
         case UIDeviceOrientationLandscapeRight:
-            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeRight;
             break;
         case UIDeviceOrientationPortrait:
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
