@@ -7,6 +7,7 @@
 //
 
 #import "IPDFCameraViewController.h"
+#import "OrientationHelper.h"
 
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
@@ -40,7 +41,9 @@
 @property (nonatomic, assign) BOOL forceStop;
 @property (nonatomic, assign) CGSize intrinsicContentSize;
 
-@property (nonatomic, strong) AVCaptureConnection *cameraConnection;
+@property (nonatomic, weak) AVCaptureConnection *cameraConnection;
+
+@property (nonatomic, strong) OrientationHelper *orientationHelper;
 
 @end
 
@@ -59,15 +62,22 @@
     
     BOOL _isCapturing;
     dispatch_queue_t _captureQueue;
+
+    NSNotificationCenter *notificationCenter;
+    UIDevice *device;
 }
 
 - (void)awakeFromNib
 {
     [super awakeFromNib];
+
+    notificationCenter = [NSNotificationCenter defaultCenter];
+    device = [UIDevice currentDevice];
+    _orientationHelper = [[OrientationHelper alloc] initWithBundle:[NSBundle mainBundle]];
+
+    [notificationCenter addObserver:self selector:@selector(_backgroundMode) name:UIApplicationWillResignActiveNotification object:nil];
     
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_backgroundMode) name:UIApplicationWillResignActiveNotification object:nil];
-    
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_foregroundMode) name:UIApplicationDidBecomeActiveNotification object:nil];
+    [notificationCenter addObserver:self selector:@selector(_foregroundMode) name:UIApplicationDidBecomeActiveNotification object:nil];
     
     [self beginObserservingOrientationNotifications];
     
@@ -86,8 +96,8 @@
 
 - (void)dealloc
 {
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [UIDevice.currentDevice endGeneratingDeviceOrientationNotifications];
+    [notificationCenter removeObserver:self];
+    [device endGeneratingDeviceOrientationNotifications];
 }
 
 - (void)createGLKView
@@ -135,10 +145,9 @@
     self.stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
     [session addOutput:self.stillImageOutput];
     
-    AVCaptureConnection *connection = [dataOutput.connections firstObject];
-//    [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
-    [self orientationNotificationDidChange:nil];
-    
+    self.cameraConnection = [dataOutput.connections firstObject];
+//    [self orientationNotificationDidChange:nil];
+
     if (device.isFlashAvailable)
     {
         [device lockForConfiguration:nil];
@@ -178,9 +187,9 @@
     if (_isStopped || _isCapturing || !CMSampleBufferIsValid(sampleBuffer)) return;
     
     CVPixelBufferRef pixelBuffer = (CVPixelBufferRef)CMSampleBufferGetImageBuffer(sampleBuffer);
-    
+
     CIImage *image = [CIImage imageWithCVPixelBuffer:pixelBuffer];
-    
+
     if (self.cameraViewType != IPDFCameraViewTypeNormal)
     {
         image = [self filteredImageUsingEnhanceFilterOnImage:image];
@@ -209,26 +218,29 @@
             _imageDedectionConfidence = 0.0f;
         }
     }
-    
-    if (self.context && _coreImageContext)
-    {
-        if(_context != [EAGLContext currentContext])
+
+    IPDFCameraViewController __weak *weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (weakSelf.context && _coreImageContext)
         {
-            [EAGLContext setCurrentContext:_context];
+            if(_context != [EAGLContext currentContext])
+            {
+                [EAGLContext setCurrentContext:_context];
+            }
+            [_glkView bindDrawable];
+            [_coreImageContext drawImage:image inRect:weakSelf.bounds fromRect:[weakSelf cropRectForPreviewImage:image]];
+            [_glkView display];
+
+            if(_intrinsicContentSize.width != image.extent.size.width) {
+                weakSelf.intrinsicContentSize = image.extent.size;
+//                dispatch_async(dispatch_get_main_queue(), ^{
+                    [weakSelf invalidateIntrinsicContentSize];
+//                });
+            }
+
+//            image = nil;
         }
-        [_glkView bindDrawable];
-        [_coreImageContext drawImage:image inRect:self.bounds fromRect:[self cropRectForPreviewImage:image]];
-        [_glkView display];
-        
-        if(_intrinsicContentSize.width != image.extent.size.width) {
-            self.intrinsicContentSize = image.extent.size;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self invalidateIntrinsicContentSize];
-            });
-        }
-        
-        image = nil;
-    }
+    });
 }
 
 - (CGSize)intrinsicContentSize
@@ -604,30 +616,44 @@ BOOL rectangleDetectionConfidenceHighEnough(float confidence)
 
 -(void)beginObserservingOrientationNotifications
 {
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    NSOperationQueue *mainQueue = [NSOperationQueue mainQueue];
-    [center addObserver: self selector:@selector(orientationNotificationDidChange:) name: UIDeviceOrientationDidChangeNotification object:nil];
-    [UIDevice.currentDevice beginGeneratingDeviceOrientationNotifications];
+    [notificationCenter addObserver: self
+                           selector: @selector(orientationNotificationDidChange:)
+                               name: UIDeviceOrientationDidChangeNotification
+                             object: nil];
+    [device beginGeneratingDeviceOrientationNotifications];
 }
 
 -(void)orientationNotificationDidChange:(NSNotification *)notif
 {
-    switch (UIDevice.currentDevice.orientation) {
+
+    // Filter out all the orientations which aren't supported by the application.
+    if (![self isOrientationSupported:device.orientation]) {
+        return;
+    }
+
+    switch (device.orientation) {
         case UIDeviceOrientationLandscapeLeft:
-            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
-            break;
-        case UIDeviceOrientationLandscapeRight:
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeRight;
             break;
-        case UIDeviceOrientationPortrait:
+        case UIDeviceOrientationLandscapeRight:
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
+            break;
+        case UIDeviceOrientationPortrait:
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationPortrait;
             break;
         case UIDeviceOrientationPortraitUpsideDown:
-            _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
-            break;
+            _cameraConnection.videoOrientation = AVCaptureVideoOrientationPortraitUpsideDown;
+        break;
         default:
             _cameraConnection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
             break;
     }
+}
+
+/**
+ Whether the given UIDeviceOrientation is supported by the application.
+*/
+-(BOOL)isOrientationSupported:(UIDeviceOrientation)orientation {
+    return [self.orientationHelper isCurrentOrientationSupported:orientation];
 }
 @end

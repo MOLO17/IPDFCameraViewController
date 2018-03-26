@@ -14,6 +14,7 @@
 		22F8A01A1A6279030099DC69 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 22F8A0191A6279030099DC69 /* Images.xcassets */; };
 		22F8A01D1A6279030099DC69 /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 22F8A01B1A6279030099DC69 /* LaunchScreen.xib */; };
 		22F8A0351A62799E0099DC69 /* IPDFCameraViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 22F8A0341A62799E0099DC69 /* IPDFCameraViewController.m */; };
+		55BC4C34206945FE006913A0 /* OrientationHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 55BC4C33206945FE006913A0 /* OrientationHelper.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +30,8 @@
 		22F8A01C1A6279030099DC69 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/LaunchScreen.xib; sourceTree = "<group>"; };
 		22F8A0331A62799E0099DC69 /* IPDFCameraViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPDFCameraViewController.h; sourceTree = "<group>"; };
 		22F8A0341A62799E0099DC69 /* IPDFCameraViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IPDFCameraViewController.m; sourceTree = "<group>"; };
+		55BC4C32206945FE006913A0 /* OrientationHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OrientationHelper.h; sourceTree = "<group>"; };
+		55BC4C33206945FE006913A0 /* OrientationHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OrientationHelper.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +73,8 @@
 				22F8A01B1A6279030099DC69 /* LaunchScreen.xib */,
 				22F8A0191A6279030099DC69 /* Images.xcassets */,
 				22F8A00C1A6279030099DC69 /* Supporting Files */,
+				55BC4C32206945FE006913A0 /* OrientationHelper.h */,
+				55BC4C33206945FE006913A0 /* OrientationHelper.m */,
 			);
 			name = IPDFCameraViewControllerDemo;
 			path = IPDFCameraViewController;
@@ -124,7 +129,7 @@
 				TargetAttributes = {
 					22F8A0081A6279030099DC69 = {
 						CreatedOnToolsVersion = 6.1.1;
-						DevelopmentTeam = YNWWNUC3W6;
+						DevelopmentTeam = 935BPM8A8T;
 					};
 				};
 			};
@@ -165,6 +170,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				22F8A0351A62799E0099DC69 /* IPDFCameraViewController.m in Sources */,
+				55BC4C34206945FE006913A0 /* OrientationHelper.m in Sources */,
 				22F8A0151A6279030099DC69 /* ViewController.m in Sources */,
 				22F8A0121A6279030099DC69 /* AppDelegate.m in Sources */,
 				22F8A00F1A6279030099DC69 /* main.m in Sources */,
@@ -280,11 +286,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = YNWWNUC3W6;
+				DEVELOPMENT_TEAM = 935BPM8A8T;
 				INFOPLIST_FILE = IPDFCameraViewController/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mackh.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = IPDFCameraViewControllerDemo;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -292,11 +299,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = YNWWNUC3W6;
+				DEVELOPMENT_TEAM = 935BPM8A8T;
 				INFOPLIST_FILE = IPDFCameraViewController/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.mackh.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = IPDFCameraViewControllerDemo;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
