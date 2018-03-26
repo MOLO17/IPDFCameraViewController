@@ -84,20 +84,102 @@
     _captureQueue = dispatch_queue_create("com.instapdf.AVCameraCaptureQueue", DISPATCH_QUEUE_SERIAL);
 }
 
+- (void)dealloc
+{
+    [notificationCenter removeObserver:self];
+    [device endGeneratingDeviceOrientationNotifications];
+}
+
+- (void)setupCameraView
+{
+    [self createGLKView];
+
+    NSArray *possibleDevices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
+    AVCaptureDevice *device = [possibleDevices firstObject];
+    if (!device) return;
+
+    _imageDedectionConfidence = 0.0;
+
+    AVCaptureSession *session = [[AVCaptureSession alloc] init];
+    self.captureSession = session;
+    [session beginConfiguration];
+    self.captureDevice = device;
+
+    NSError *error = nil;
+    AVCaptureDeviceInput* input = [AVCaptureDeviceInput deviceInputWithDevice:device error:&error];
+    session.sessionPreset = AVCaptureSessionPresetPhoto;
+    [session addInput:input];
+
+    AVCaptureVideoDataOutput *dataOutput = [[AVCaptureVideoDataOutput alloc] init];
+    [dataOutput setAlwaysDiscardsLateVideoFrames:YES];
+    [dataOutput setVideoSettings:@{(id)kCVPixelBufferPixelFormatTypeKey:@(kCVPixelFormatType_32BGRA)}];
+    [dataOutput setSampleBufferDelegate:self queue:_captureQueue];
+    [session addOutput:dataOutput];
+
+    self.stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
+    [session addOutput:self.stillImageOutput];
+
+    self.cameraConnection = [dataOutput.connections firstObject];
+
+    if (device.isFlashAvailable)
+    {
+        [device lockForConfiguration:nil];
+        [device setFlashMode:AVCaptureFlashModeOff];
+        [device unlockForConfiguration];
+
+        if ([device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus])
+        {
+            [device lockForConfiguration:nil];
+            [device setFocusMode:AVCaptureFocusModeContinuousAutoFocus];
+            [device unlockForConfiguration];
+        }
+    }
+
+    [session commitConfiguration];
+}
+
+- (void)start
+{
+    _isStopped = NO;
+
+    [self.captureSession startRunning];
+
+    _borderDetectTimeKeeper = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(enableBorderDetectFrame) userInfo:nil repeats:YES];
+
+    [self hideGLKView:NO completion:nil];
+}
+
+- (void)stop
+{
+    _isStopped = YES;
+
+    [self.captureSession stopRunning];
+
+    [_borderDetectTimeKeeper invalidate];
+
+    [self hideGLKView:YES completion:nil];
+}
+
+#pragma mark Private methods
+
+#pragma mark UIApplicationWillResignActiveNotification
+
+/**
+ Called when the app goes in the background.
+ */
 - (void)_backgroundMode
 {
     self.forceStop = YES;
 }
 
+#pragma mark UIApplicationDidBecomeActiveNotification
+
+/**
+ Called when the app goes in the foreground.
+ */
 - (void)_foregroundMode
 {
     self.forceStop = NO;
-}
-
-- (void)dealloc
-{
-    [notificationCenter removeObserver:self];
-    [device endGeneratingDeviceOrientationNotifications];
 }
 
 - (void)createGLKView
@@ -114,55 +196,6 @@
     [self insertSubview:view atIndex:0];
     _glkView = view;
     _coreImageContext = [CIContext contextWithEAGLContext:self.context options:@{ kCIContextWorkingColorSpace : [NSNull null],kCIContextUseSoftwareRenderer : @(NO)}];
-}
-
-- (void)setupCameraView
-{
-    [self createGLKView];
-    
-    NSArray *possibleDevices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
-    AVCaptureDevice *device = [possibleDevices firstObject];
-    if (!device) return;
-    
-    _imageDedectionConfidence = 0.0;
-    
-    AVCaptureSession *session = [[AVCaptureSession alloc] init];
-    self.captureSession = session;
-    [session beginConfiguration];
-    self.captureDevice = device;
-    
-    NSError *error = nil;
-    AVCaptureDeviceInput* input = [AVCaptureDeviceInput deviceInputWithDevice:device error:&error];
-    session.sessionPreset = AVCaptureSessionPresetPhoto;
-    [session addInput:input];
-    
-    AVCaptureVideoDataOutput *dataOutput = [[AVCaptureVideoDataOutput alloc] init];
-    [dataOutput setAlwaysDiscardsLateVideoFrames:YES];
-    [dataOutput setVideoSettings:@{(id)kCVPixelBufferPixelFormatTypeKey:@(kCVPixelFormatType_32BGRA)}];
-    [dataOutput setSampleBufferDelegate:self queue:_captureQueue];
-    [session addOutput:dataOutput];
-    
-    self.stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
-    [session addOutput:self.stillImageOutput];
-    
-    self.cameraConnection = [dataOutput.connections firstObject];
-//    [self orientationNotificationDidChange:nil];
-
-    if (device.isFlashAvailable)
-    {
-        [device lockForConfiguration:nil];
-        [device setFlashMode:AVCaptureFlashModeOff];
-        [device unlockForConfiguration];
-        
-        if ([device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus])
-        {
-            [device lockForConfiguration:nil];
-            [device setFocusMode:AVCaptureFocusModeContinuousAutoFocus];
-            [device unlockForConfiguration];
-        }
-    }
-    
-    [session commitConfiguration];
 }
 
 - (void)setCameraViewType:(IPDFCameraViewType)cameraViewType
@@ -233,12 +266,8 @@
 
             if(_intrinsicContentSize.width != image.extent.size.width) {
                 weakSelf.intrinsicContentSize = image.extent.size;
-//                dispatch_async(dispatch_get_main_queue(), ^{
-                    [weakSelf invalidateIntrinsicContentSize];
-//                });
+                [weakSelf invalidateIntrinsicContentSize];
             }
-
-//            image = nil;
         }
     });
 }
@@ -277,28 +306,6 @@
     overlay = [overlay imageByApplyingFilter:@"CIPerspectiveTransformWithExtent" withInputParameters:@{@"inputExtent":[CIVector vectorWithCGRect:image.extent],@"inputTopLeft":[CIVector vectorWithCGPoint:topLeft],@"inputTopRight":[CIVector vectorWithCGPoint:topRight],@"inputBottomLeft":[CIVector vectorWithCGPoint:bottomLeft],@"inputBottomRight":[CIVector vectorWithCGPoint:bottomRight]}];
     
     return [overlay imageByCompositingOverImage:image];
-}
-
-- (void)start
-{
-    _isStopped = NO;
-    
-    [self.captureSession startRunning];
-    
-    _borderDetectTimeKeeper = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(enableBorderDetectFrame) userInfo:nil repeats:YES];
-    
-    [self hideGLKView:NO completion:nil];
-}
-
-- (void)stop
-{
-    _isStopped = YES;
-    
-    [self.captureSession stopRunning];
-    
-    [_borderDetectTimeKeeper invalidate];
-    
-    [self hideGLKView:YES completion:nil];
 }
 
 - (void)setEnableTorch:(BOOL)enableTorch
