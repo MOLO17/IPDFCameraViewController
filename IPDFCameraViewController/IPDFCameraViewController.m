@@ -120,6 +120,7 @@
     [session addOutput:self.stillImageOutput];
 
     self.cameraConnection = [dataOutput.connections firstObject];
+    [self orientationNotificationDidChange: nil];
 
     if (device.isFlashAvailable)
     {
