@@ -122,7 +122,6 @@
     [dataOutput setSampleBufferDelegate:self queue:_captureQueue];
 
     if ([session canAddOutput:dataOutput]) {
-        _isPermissionGiven = YES;
         [session addOutput:dataOutput];
     }
 
