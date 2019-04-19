@@ -82,6 +82,8 @@
     [self beginObserservingOrientationNotifications];
     
     _captureQueue = dispatch_queue_create("com.instapdf.AVCameraCaptureQueue", DISPATCH_QUEUE_SERIAL);
+
+    _isPermissionGiven = NO;
 }
 
 - (void)dealloc
@@ -110,6 +112,7 @@
     session.sessionPreset = AVCaptureSessionPresetPhoto;
 
     if ([session canAddInput:input]) {
+        _isPermissionGiven = YES;
         [session addInput:input];
     }
 
@@ -119,9 +122,9 @@
     [dataOutput setSampleBufferDelegate:self queue:_captureQueue];
 
     if ([session canAddOutput:dataOutput]) {
+        _isPermissionGiven = YES;
         [session addOutput:dataOutput];
     }
-    [session addOutput:dataOutput];
 
     self.stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
     [session addOutput:self.stillImageOutput];
@@ -390,7 +393,7 @@
     
     __weak typeof(self) weakSelf = self;
 
-    if (videoConnection != nil) {
+    if (videoConnection != nil && _isPermissionGiven) {
         [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:videoConnection completionHandler: ^(CMSampleBufferRef imageSampleBuffer, NSError *error)
          {
              if (error)
