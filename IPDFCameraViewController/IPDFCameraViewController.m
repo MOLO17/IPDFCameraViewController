@@ -108,12 +108,19 @@
     NSError *error = nil;
     AVCaptureDeviceInput* input = [AVCaptureDeviceInput deviceInputWithDevice:device error:&error];
     session.sessionPreset = AVCaptureSessionPresetPhoto;
-    [session addInput:input];
+
+    if ([session canAddInput:input]) {
+        [session addInput:input];
+    }
 
     AVCaptureVideoDataOutput *dataOutput = [[AVCaptureVideoDataOutput alloc] init];
     [dataOutput setAlwaysDiscardsLateVideoFrames:YES];
     [dataOutput setVideoSettings:@{(id)kCVPixelBufferPixelFormatTypeKey:@(kCVPixelFormatType_32BGRA)}];
     [dataOutput setSampleBufferDelegate:self queue:_captureQueue];
+
+    if ([session canAddOutput:dataOutput]) {
+        [session addOutput:dataOutput];
+    }
     [session addOutput:dataOutput];
 
     self.stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
@@ -382,92 +389,94 @@
     }
     
     __weak typeof(self) weakSelf = self;
-    
-    [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:videoConnection completionHandler: ^(CMSampleBufferRef imageSampleBuffer, NSError *error)
-     {
-         if (error)
+
+    if (videoConnection != nil) {
+        [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:videoConnection completionHandler: ^(CMSampleBufferRef imageSampleBuffer, NSError *error)
          {
-             dispatch_resume(_captureQueue);
-             return;
-         }
-         
-         __block NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"ipdf_img_%i.jpeg",(int)[NSDate date].timeIntervalSince1970]];
-         
-         @autoreleasepool
-         {
-             NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageSampleBuffer];
-             CIImage *enhancedImage = [[CIImage alloc] initWithData:imageData options:@{kCIImageColorSpace:[NSNull null]}];
-             imageData = nil;
-             
-             if (weakSelf.cameraViewType == IPDFCameraViewTypeBlackAndWhite)
+             if (error)
              {
-                 enhancedImage = [self filteredImageUsingEnhanceFilterOnImage:enhancedImage];
-             }
-             else
-             {
-                 enhancedImage = [self filteredImageUsingContrastFilterOnImage:enhancedImage];
-             }
-             
-             if (weakSelf.isBorderDetectionEnabled && rectangleDetectionConfidenceHighEnough(_imageDedectionConfidence))
-             {
-                 CIRectangleFeature *rectangleFeature = [self biggestRectangleInRectangles:[[self highAccuracyRectangleDetector] featuresInImage:enhancedImage]];
-                 
-                 if (rectangleFeature)
-                 {
-                     enhancedImage = [self correctPerspectiveForImage:enhancedImage withFeatures:rectangleFeature];
-                 }
-             }
-             
-             CIFilter *transform = [CIFilter filterWithName:@"CIAffineTransform"];
-             [transform setValue:enhancedImage forKey:kCIInputImageKey];
-             NSValue *rotation = [NSValue valueWithCGAffineTransform:CGAffineTransformMakeRotation(-90 * (M_PI/180))];
-             [transform setValue:rotation forKey:@"inputTransform"];
-             enhancedImage = [transform outputImage];
-             
-             if (!enhancedImage || CGRectIsEmpty(enhancedImage.extent)) return;
-             
-             static CIContext *ctx = nil;
-             if (!ctx)
-             {
-                 ctx = [CIContext contextWithOptions:@{kCIContextWorkingColorSpace:[NSNull null]}];
-             }
-             
-             CGSize bounds = enhancedImage.extent.size;
-             bounds = CGSizeMake(floorf(bounds.width / 4) * 4,floorf(bounds.height / 4) * 4);
-             CGRect extent = CGRectMake(enhancedImage.extent.origin.x, enhancedImage.extent.origin.y, bounds.width, bounds.height);
-             
-             static int bytesPerPixel = 8;
-             uint rowBytes = bytesPerPixel * bounds.width;
-             uint totalBytes = rowBytes * bounds.height;
-             uint8_t *byteBuffer = malloc(totalBytes);
-             
-             CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-             
-             [ctx render:enhancedImage toBitmap:byteBuffer rowBytes:rowBytes bounds:extent format:kCIFormatRGBA8 colorSpace:colorSpace];
-             
-             CGContextRef bitmapContext = CGBitmapContextCreate(byteBuffer,bounds.width,bounds.height,bytesPerPixel,rowBytes,colorSpace,kCGImageAlphaNoneSkipLast);
-             CGImageRef imgRef = CGBitmapContextCreateImage(bitmapContext);
-             CGColorSpaceRelease(colorSpace);
-             CGContextRelease(bitmapContext);
-             free(byteBuffer);
-             
-             if (imgRef == NULL)
-             {
-                 CFRelease(imgRef);
+                 dispatch_resume(_captureQueue);
                  return;
              }
-             saveCGImageAsJPEGToFilePath(imgRef, filePath);
-             CFRelease(imgRef);
-             
-             dispatch_async(dispatch_get_main_queue(), ^
+
+             __block NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"ipdf_img_%i.jpeg",(int)[NSDate date].timeIntervalSince1970]];
+
+             @autoreleasepool
              {
-                completionHandler(filePath);
-                dispatch_resume(_captureQueue);
-             });
-             
-             _imageDedectionConfidence = 0.0f;
-         }
-     }];
+                 NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageSampleBuffer];
+                 CIImage *enhancedImage = [[CIImage alloc] initWithData:imageData options:@{kCIImageColorSpace:[NSNull null]}];
+                 imageData = nil;
+
+                 if (weakSelf.cameraViewType == IPDFCameraViewTypeBlackAndWhite)
+                 {
+                     enhancedImage = [self filteredImageUsingEnhanceFilterOnImage:enhancedImage];
+                 }
+                 else
+                 {
+                     enhancedImage = [self filteredImageUsingContrastFilterOnImage:enhancedImage];
+                 }
+
+                 if (weakSelf.isBorderDetectionEnabled && rectangleDetectionConfidenceHighEnough(_imageDedectionConfidence))
+                 {
+                     CIRectangleFeature *rectangleFeature = [self biggestRectangleInRectangles:[[self highAccuracyRectangleDetector] featuresInImage:enhancedImage]];
+
+                     if (rectangleFeature)
+                     {
+                         enhancedImage = [self correctPerspectiveForImage:enhancedImage withFeatures:rectangleFeature];
+                     }
+                 }
+
+                 CIFilter *transform = [CIFilter filterWithName:@"CIAffineTransform"];
+                 [transform setValue:enhancedImage forKey:kCIInputImageKey];
+                 NSValue *rotation = [NSValue valueWithCGAffineTransform:CGAffineTransformMakeRotation(-90 * (M_PI/180))];
+                 [transform setValue:rotation forKey:@"inputTransform"];
+                 enhancedImage = [transform outputImage];
+
+                 if (!enhancedImage || CGRectIsEmpty(enhancedImage.extent)) return;
+
+                 static CIContext *ctx = nil;
+                 if (!ctx)
+                 {
+                     ctx = [CIContext contextWithOptions:@{kCIContextWorkingColorSpace:[NSNull null]}];
+                 }
+
+                 CGSize bounds = enhancedImage.extent.size;
+                 bounds = CGSizeMake(floorf(bounds.width / 4) * 4,floorf(bounds.height / 4) * 4);
+                 CGRect extent = CGRectMake(enhancedImage.extent.origin.x, enhancedImage.extent.origin.y, bounds.width, bounds.height);
+
+                 static int bytesPerPixel = 8;
+                 uint rowBytes = bytesPerPixel * bounds.width;
+                 uint totalBytes = rowBytes * bounds.height;
+                 uint8_t *byteBuffer = malloc(totalBytes);
+
+                 CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+
+                 [ctx render:enhancedImage toBitmap:byteBuffer rowBytes:rowBytes bounds:extent format:kCIFormatRGBA8 colorSpace:colorSpace];
+
+                 CGContextRef bitmapContext = CGBitmapContextCreate(byteBuffer,bounds.width,bounds.height,bytesPerPixel,rowBytes,colorSpace,kCGImageAlphaNoneSkipLast);
+                 CGImageRef imgRef = CGBitmapContextCreateImage(bitmapContext);
+                 CGColorSpaceRelease(colorSpace);
+                 CGContextRelease(bitmapContext);
+                 free(byteBuffer);
+
+                 if (imgRef == NULL)
+                 {
+                     CFRelease(imgRef);
+                     return;
+                 }
+                 saveCGImageAsJPEGToFilePath(imgRef, filePath);
+                 CFRelease(imgRef);
+
+                 dispatch_async(dispatch_get_main_queue(), ^
+                                {
+                                    completionHandler(filePath);
+                                    dispatch_resume(_captureQueue);
+                                });
+
+                 _imageDedectionConfidence = 0.0f;
+             }
+         }];
+    }
 }
 
 void saveCGImageAsJPEGToFilePath(CGImageRef imageRef, NSString *filePath)
